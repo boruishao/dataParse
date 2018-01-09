@@ -1,11 +1,6 @@
 package com.patsnap.utils;
 
-import com.amazonaws.client.builder.AwsClientBuilder;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDB;
-import com.amazonaws.services.dynamodbv2.AmazonDynamoDBClientBuilder;
-import com.amazonaws.services.dynamodbv2.document.DynamoDB;
 import com.amazonaws.services.dynamodbv2.document.Item;
-import com.amazonaws.services.dynamodbv2.document.Table;
 import net.sf.json.JSONArray;
 import net.sf.json.JSONObject;
 
@@ -154,105 +149,6 @@ public class ParseRef {
     /**********************************************************************************************************************************/
 
     /**
-     * 通过读dynamoDb表的数据，解析json，通过dynamoDb的SDK
-     * @return
-     */
-    public static Map<String,String> getNormalJson(String serviceEndpoint,String signingRegion,String tableName,String idName){
-        HashMap<String,String> result = new HashMap<>();
-        AmazonDynamoDB client = AmazonDynamoDBClientBuilder.standard().withEndpointConfiguration(
-                new AwsClientBuilder.EndpointConfiguration(serviceEndpoint, signingRegion))
-                .build();
-        DynamoDB dynamoDB = new DynamoDB(client);
-        Table table = dynamoDB.getTable(tableName);
-
-        Item item = table.getItem("Artist","AC");
-
-        Map<String, Item> map = new LinkedHashMap<>();
-        map.put(tableName,new Item());
-
-        //获取id，解析json
-        String pid = item.getString(idName);
-        parse(item,map,tableName,pid);
-
-        //最终要的结果，list应为[....]格式，但解析出来的为{_:[]},所以要做处理
-        for (Map.Entry<String, Item> entry : map.entrySet()) {
-            //list类型的json，经过程序提取， map中不可能包含list
-            String v = entry.getValue().toJSON();
-            String k = entry.getKey();
-            if(v.contains("[")){
-                result.put(k,v.substring(v.indexOf("["),v.indexOf("]")+1));
-            }else{
-                result.put(k,v);
-            }
-        }
-        return result;
-    }
-
-    /**
-     * 通过dynamoDb的Item解析
-     * @param item
-     * @param imap
-     * @param tName
-     * @param pid
-     */
-    private static void parse(Item item, Map<String,Item> imap, String tName, String pid){
-        Set<String> keys = item.asMap().keySet();
-        for (String key :  keys){
-            if (item.getTypeOf(key).getSimpleName().equals(ARRAY_LIST)){
-                List<LinkedHashMap<String,Object>> oldList = item.getList(key);
-                List<LinkedHashMap<String,Object>> newList = new ArrayList<>();
-                //这个是加到list中的item
-                Item newItem = new Item();
-
-                for (LinkedHashMap<String,Object> oldMap : oldList) {
-                    Item litem = new Item();
-                    String uuid = getUUid();
-                    //添加id和pid，用来关联上下级关系
-                    oldMap.put(ID_NAME,uuid);
-                    oldMap.put(PID_NAME,pid);
-                    //把oldmap转为item对象
-                    for (Map.Entry<String, Object> entry : oldMap.entrySet()) {
-                        litem.with(entry.getKey(),entry.getValue());
-                    }
-                    //临时添加到imap，解析其中的子对象，然后把他添加到本层的list中，并删除子map
-                    imap.put(key+"_temp",litem);
-                    parse(litem,imap,key+"_temp",uuid);
-                    Item tempItem = imap.get(key + "_temp");
-                    newList.add((LinkedHashMap<String, Object>) tempItem.asMap());
-                    imap.remove(key+"_temp");
-                }
-                newItem.withList(key,newList);
-                imap.put(key,newItem);
-            }else
-            if (item.getTypeOf(key).getSimpleName().equals(LINKED_HASH_MAP)){
-                String uuid = getUUid();
-                Map<String, Object> map = item.getMap(key);
-                //添加id和pid，用来关联上下级关系
-                map.put(ID_NAME,uuid);
-                map.put(PID_NAME,pid);
-                Item mitem = new Item();
-                for (Map.Entry<String, Object> entry : map.entrySet()) {
-                    mitem.with(entry.getKey(),entry.getValue());
-                }
-                //上层item需删除在子item中存在的元素
-                item.removeAttribute(key);
-
-                imap.put(key,mitem);
-                parse(mitem,imap,key,uuid);
-            }else
-            if(item.getTypeOf(key).getSimpleName().equals(BIG_DECIMAL)){
-                imap.get(tName).with(key, item.get(key));
-            }
-            else {//String.....
-                imap.get(tName).withString(key,item.getString(key));
-            }
-        }
-    }
-
-    /**********************************************************************************************************************************/
-
-
-    /**
      * 使用dynamo的item类解析json
      * @param dyJson
      * @param tableName
@@ -273,55 +169,6 @@ public class ParseRef {
             result.put(key,itemMap.get(key).toJSON());
         }
         return result;
-    }
-
-    public static void parseItem(String fileName, Item item , Map<String,Item> itemMap, String pFieldName, String idNameSuffix, String id){
-        parseItem(fileName,item,itemMap,pFieldName,idNameSuffix,id,false);
-    }
-
-    public static void parseItem(String fileName, Item item , Map<String,Item> itemMap, String pFieldName, String idNameSuffix, String id,boolean isList){
-        Map<String, Object> eles = item.asMap();
-        String fName = fileName+"_"+pFieldName; //新建文件名
-        String iName = fileName+"_"+idNameSuffix;//新建idName
-        for (String k : eles.keySet()){
-            if(item.getTypeOf(k).getSimpleName().equals("ArrayList")){
-                ArrayList<Map<String, Object>> maps = (ArrayList<Map<String, Object>>) item.get(k);
-                Item listItem = new Item();
-                int i = 0;
-                for ( Map<String, Object> m: maps) {
-                    String element = "list_target"+i;
-                    itemMap.put(fName,new Item());
-                    Item it = new Item().fromMap(m);
-                    parseItem(fName,it,itemMap,null,iName,id+"_"+i++,true);//作为从list递归的标志
-                    listItem.withMap(element, itemMap.get(fName).asMap());//以此拼接item到list中
-                    itemMap.remove(fName);//删除临时item
-                }
-                if(listItem.numberOfAttributes()>0) {
-                    itemMap.put(fName, listItem);//把list类型的数据添加
-                }
-            }
-            if(item.getTypeOf(k).getSimpleName().equals("LinkedHashMap")){
-                Item it = new Item().fromMap((Map<String, Object>) item.get(k));
-                if("m".equals(k)){
-                    if(isList){ //从list传来的map，要写在同一个文件里，作此处理
-                        it.withJSON(idNameSuffix,new Item().withString("s",id).toJSON());//给新建的item添加主键
-                        parseItem(fileName,it,itemMap,null,idNameSuffix,id,false); //map类型不许要字段名
-                    }else {
-                        it.withJSON(iName,new Item().withString("s",id).toJSON());//给新建的item添加主键
-                        itemMap.put(fName, new Item());
-                        parseItem(fName, it, itemMap, null,idNameSuffix,id,false); //map类型不许要字段名
-                    }
-                }else {
-                    parseItem(fileName,it,itemMap,k,idNameSuffix,id,false);
-                }
-            }
-            if(item.getTypeOf(k).getSimpleName().equals("BigDecimal")){
-                itemMap.get(fileName).withNumber(pFieldName, item.getNumber(k));
-            }
-            if(item.getTypeOf(k).getSimpleName().equals("String")){
-                itemMap.get(fileName).withString(pFieldName,item.getString(k));
-            }
-        }
     }
 
     public static void parseItem(String fileName, Item item , Map<String,Item> itemMap, String pFieldName, Map<String,String> idMap){
@@ -419,6 +266,117 @@ public class ParseRef {
         }
     }
 
+    /**********************************************************************************************************************************/
+
+    /**
+     * 使用dynamo的item类解析json
+     * @param dyJson
+     * @param tableName
+     * @param idName
+     * @return
+     */
+    public static Map<String,String> parseNormalJsonByItem(String dyJson,String tableName,String idName){
+
+        HashMap<String,String> result = new LinkedHashMap<>();
+        try {
+        Item it = new Item().fromJSON(dyJson);//init item
+        Map<String,Item> itemMap = new LinkedHashMap<>();
+        itemMap.put(tableName,new Item());
+        Map<String,String> idMap = new LinkedHashMap<>();
+        String id = it.getString(idName).toString();
+        idMap.put(idName,id);
+
+            parseNormalItem(tableName,it,itemMap,idMap);
+
+        for (String key : itemMap.keySet()) {
+            result.put(key,itemMap.get(key).toJSON());
+        }
+        } catch (Exception e) {
+//            e.printStackTrace();
+        }
+        return result;
+    }
+    /**
+     * 解析普通的json
+     * @param fileName
+     * @param item
+     * @param itemMap
+     * @param idMap 子表需添加的id
+     */
+    public static void parseNormalItem(String fileName, Item item , Map<String,Item> itemMap, Map<String,String> idMap){
+        Map<String, Object> eles = item.asMap();
+        //主id的名字和值
+        Map.Entry<String, String> pidEntry=null;
+        if(idMap.size()>0) {
+            pidEntry = idMap.entrySet().iterator().next();
+        }
+        for (String k : eles.keySet()){
+            String newName = fileName+"_"+k;
+            if(item.getTypeOf(k).getSimpleName().equals("ArrayList")){
+                Item listItem = new Item();
+                ArrayList<Object> objs = (ArrayList<Object>) item.get(k);
+                int i = 0 ;
+                for (Object o  : objs) {
+                    String element = "list_target"+i;
+                    idMap.put(k+"_row",i+"");
+                    itemMap.put(newName,new Item());//添加临时item
+                    if (o instanceof String){
+                        Item strIt = new Item().withString("string_field",(String)o);
+                        //添加主键
+                        for (Map.Entry<String,String> identry : idMap.entrySet()) {
+                            strIt.withString(identry.getKey(),identry.getValue());
+                        }
+                        parseNormalItem(newName,strIt,itemMap,idMap);
+                    }
+                    if (o instanceof Number){
+                        Item numIt = new Item().withNumber("number_field", (Number) o);
+                        //添加主键
+                        for (Map.Entry<String,String> identry : idMap.entrySet()) {
+                            numIt.withString(identry.getKey(),identry.getValue());
+                        }
+                        parseNormalItem(newName,numIt,itemMap,idMap);
+                        parseNormalItem(newName,new Item().withNumber("number_field",(Number) o),itemMap,idMap);
+                    }
+                    if (o instanceof Map){
+                        Item mapIt = Item.fromMap((Map<String, Object>) o);
+                        for (Map.Entry<String,String> identry : idMap.entrySet()) {
+                            mapIt.withString(identry.getKey(),identry.getValue());
+                        }
+                        parseNormalItem(newName,mapIt,itemMap,idMap);
+                    }
+                    if (o instanceof List){
+                        //不合理
+//                        parseItem(newName,new Item().withList("list_field",(List)o),itemMap,idMap,true);
+                    }
+                    listItem.with(element,itemMap.get(newName).asMap());
+                    itemMap.remove(newName);//删除临时item
+                    i++;
+                }
+                idMap.clear();
+                if(pidEntry!=null){
+                    idMap.put(pidEntry.getKey(),pidEntry.getValue());
+                }
+                if(listItem.numberOfAttributes()>0) {
+                    itemMap.put(newName, listItem);//把list类型的数据添加
+                }
+            }
+            if(item.getTypeOf(k).getSimpleName().equals("LinkedHashMap")){
+                Item it = Item.fromMap((Map<String, Object>) item.get(k));
+                //添加主键
+                for (Map.Entry<String,String> identry : idMap.entrySet()) {
+                    it.withString(identry.getKey(),identry.getValue());
+                }
+                itemMap.put(newName,new Item());
+                parseNormalItem(newName,it,itemMap,idMap);
+            }
+            if(item.getTypeOf(k).getSimpleName().equals("BigDecimal")){
+                itemMap.get(fileName).withNumber(k,item.getNumber(k));
+            }
+            if(item.getTypeOf(k).getSimpleName().equals("String")){
+                itemMap.get(fileName).withString(k,item.getString(k));
+            }
+        }
+    }
 
 
     /**
