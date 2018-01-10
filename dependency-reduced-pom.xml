@@ -30,11 +30,51 @@
   </build>
   <dependencies>
     <dependency>
+      <groupId>org.apache.hadoop</groupId>
+      <artifactId>hadoop-client</artifactId>
+      <version>2.7.3</version>
+      <scope>provided</scope>
+      <exclusions>
+        <exclusion>
+          <artifactId>hadoop-common</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hadoop-hdfs</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hadoop-mapreduce-client-app</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hadoop-yarn-api</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hadoop-mapreduce-client-core</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hadoop-mapreduce-client-jobclient</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>hadoop-annotations</artifactId>
+          <groupId>org.apache.hadoop</groupId>
+        </exclusion>
+      </exclusions>
+    </dependency>
+    <dependency>
       <groupId>org.apache.spark</groupId>
       <artifactId>spark-core_2.11</artifactId>
       <version>2.2.0</version>
       <scope>provided</scope>
       <exclusions>
+        <exclusion>
+          <artifactId>avro</artifactId>
+          <groupId>org.apache.avro</groupId>
+        </exclusion>
         <exclusion>
           <artifactId>avro-mapred</artifactId>
           <groupId>org.apache.avro</groupId>
@@ -72,12 +112,28 @@
           <groupId>net.java.dev.jets3t</groupId>
         </exclusion>
         <exclusion>
+          <artifactId>curator-recipes</artifactId>
+          <groupId>org.apache.curator</groupId>
+        </exclusion>
+        <exclusion>
           <artifactId>javax.servlet-api</artifactId>
           <groupId>javax.servlet</groupId>
         </exclusion>
         <exclusion>
           <artifactId>commons-lang3</artifactId>
           <groupId>org.apache.commons</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-math3</artifactId>
+          <groupId>org.apache.commons</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>jsr305</artifactId>
+          <groupId>com.google.code.findbugs</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-api</artifactId>
+          <groupId>org.slf4j</groupId>
         </exclusion>
         <exclusion>
           <artifactId>jul-to-slf4j</artifactId>
@@ -88,8 +144,20 @@
           <groupId>org.slf4j</groupId>
         </exclusion>
         <exclusion>
+          <artifactId>log4j</artifactId>
+          <groupId>log4j</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>slf4j-log4j12</artifactId>
+          <groupId>org.slf4j</groupId>
+        </exclusion>
+        <exclusion>
           <artifactId>compress-lzf</artifactId>
           <groupId>com.ning</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>snappy-java</artifactId>
+          <groupId>org.xerial.snappy</groupId>
         </exclusion>
         <exclusion>
           <artifactId>lz4</artifactId>
@@ -98,6 +166,10 @@
         <exclusion>
           <artifactId>RoaringBitmap</artifactId>
           <groupId>org.roaringbitmap</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>commons-net</artifactId>
+          <groupId>commons-net</groupId>
         </exclusion>
         <exclusion>
           <artifactId>scala-library</artifactId>
@@ -126,6 +198,14 @@
         <exclusion>
           <artifactId>jersey-container-servlet-core</artifactId>
           <groupId>org.glassfish.jersey.containers</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>netty-all</artifactId>
+          <groupId>io.netty</groupId>
+        </exclusion>
+        <exclusion>
+          <artifactId>netty</artifactId>
+          <groupId>io.netty</groupId>
         </exclusion>
         <exclusion>
           <artifactId>stream</artifactId>

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-cd /d/program/FinalDemo/
+cd /d/program/dataParse
 mvn package  -Dmaven.test.skip=true
 #FinalDemo-1.0-SNAPSHOT.jar
-scp /d/program/FinalDemo/target/FinalDemo-1.0-SNAPSHOT-shaded.jar root@192.168.111.129:/opt/model/spark-2.2.0-bin-hadoop2.7/jar/FinalDemo.jar
+scp target/dataParse-1.0-SNAPSHOT.jar root@com.patsnap.user1:/opt/model/hadoop-2.7.3/jars/mrTest.jar
